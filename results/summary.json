@@ -1,0 +1,15 @@
+{
+  "model": "pythia-2.8b",
+  "n_layers": 32,
+  "d_model": 2560,
+  "n_samples": 392,
+  "best_layer": 30,
+  "best_lr_accuracy": 0.9310795361750775,
+  "best_lr_accuracy_std": 0.022406459592719623,
+  "best_diffmean_accuracy": 0.8086734693877551,
+  "random_baseline_accuracy": 0.4944719387755102,
+  "random_baseline_std": 0.2263422038213049,
+  "z_score_vs_random": 1.3881703248780952,
+  "p_value_vs_random": 0.034,
+  "seed": 42
+}

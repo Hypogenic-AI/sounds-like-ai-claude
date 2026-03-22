@@ -1,0 +1,7 @@
+Large language models produce text with a distinctive style---formal, hedging, verbose---that readers readily identify as ``sounding like AI.''
+Recent work in mechanistic interpretability has shown that high-level concepts such as truthfulness and refusal are linearly represented in the residual stream of transformer models, but whether stylistic qualities like \aistyle follow the same geometric pattern remains unexplored.
+We investigate this question using contrastive activation analysis on paired human- and ChatGPT-written text from the \hcthree dataset.
+Linear probes trained on residual stream activations achieve 93--96\% accuracy at distinguishing human from AI text across two architecturally different models (\pythia and \qwen), while the one-dimensional difference-in-means direction alone achieves 69--81\% accuracy, significantly above chance.
+Cross-domain generalization averages 69--72\%, and causal steering along the identified direction produces monotonic shifts in activation projections.
+These results provide evidence that \aistyle is a linearly decodable feature of the residual stream, though the gap between probe and single-direction accuracy suggests it occupies a multi-dimensional subspace rather than a single clean direction.
+Our findings connect mechanistic interpretability to AI-generated text detection and suggest that alignment training produces structured, geometrically simple stylistic signatures.

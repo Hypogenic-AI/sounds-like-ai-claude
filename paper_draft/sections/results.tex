@@ -1,0 +1,150 @@
+\section{Results}
+\label{sec:results}
+
+\subsection{Linear Probes Achieve High Accuracy}
+\label{sec:probes}
+
+Linear probes trained on residual stream activations accurately distinguish human from AI text.
+\Tabref{tab:probe_results} reports probe accuracy and \diffmean accuracy at selected layers for both models.
+On \pythia, the best linear probe achieves 93.1\% accuracy (layer 30, 5-fold CV), while on \qwen it reaches 95.9\% (layer 9).
+These results are far above the 50\% chance baseline and demonstrate that the residual stream contains a strong, linearly separable signal for \aistyle.
+
+\begin{table}[t]
+    \centering
+    \caption{Linear probe accuracy (5-fold CV) and \diffmean 1D accuracy by layer. Best results per model in \textbf{bold}.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{@{}lcclcc@{}}
+        \toprule
+        \multicolumn{3}{c}{\textsc{Pythia-2.8B}} & \multicolumn{3}{c}{\textsc{Qwen2.5-3B-Instruct}} \\
+        \cmidrule(lr){1-3} \cmidrule(lr){4-6}
+        Layer & Probe Acc.\ (\%) & DiffMean (\%) & Layer & Probe Acc.\ (\%) & DiffMean (\%) \\
+        \midrule
+        0  & 80.7 {\scriptsize $\pm$ 11.9} & 72.4 & 0  & 90.4 {\scriptsize $\pm$ 1.4} & 69.6 \\
+        10 & 90.3 {\scriptsize $\pm$ 3.2}  & 76.3 & 5  & 91.2 {\scriptsize $\pm$ 1.3} & 68.1 \\
+        15 & 91.2 {\scriptsize $\pm$ 1.9}  & 76.3 & \textbf{9}  & \textbf{95.9} {\scriptsize $\pm$ 1.6} & 69.4 \\
+        20 & 92.0 {\scriptsize $\pm$ 1.9}  & 76.8 & 15 & 93.5 {\scriptsize $\pm$ 2.4} & 68.1 \\
+        25 & 90.7 {\scriptsize $\pm$ 4.1}  & 76.5 & 20 & 94.6 {\scriptsize $\pm$ 2.6} & 68.6 \\
+        \textbf{30} & \textbf{93.1} {\scriptsize $\pm$ 2.2} & \textbf{80.9} & 30 & 90.7 {\scriptsize $\pm$ 2.5} & 67.3 \\
+        31 & 92.1 {\scriptsize $\pm$ 2.3}  & 79.8 & 35 & 90.6 {\scriptsize $\pm$ 1.6} & 67.6 \\
+        \bottomrule
+    \end{tabular}%
+    }
+    \label{tab:probe_results}
+\end{table}
+
+\subsection{The DiffMean Direction Is Meaningful but Incomplete}
+\label{sec:diffmean}
+
+The one-dimensional \diffmean direction achieves 80.9\% accuracy on \pythia (layer 30) and 69.4\% on \qwen (layer 9).
+These numbers are well above chance but substantially below the full linear probe (93.1\% and 95.9\%, respectively), leaving a gap of 12--27 percentage points.
+This gap suggests that \aistyle is not captured by a single direction but instead occupies a multi-dimensional subspace---multiple stylistic features (formality, hedging, verbosity, structure) may each contribute their own direction.
+
+\para{Random baseline comparison.}
+\Tabref{tab:random_baseline} shows that the \diffmean direction significantly outperforms random directions.
+On \pythia, the \diffmean accuracy of 80.9\% exceeds the random mean of 49.4\% with $z = 1.39$ ($p = 0.034$).
+On \qwen, the gap is similar ($z = 1.44$, $p = 0.064$), approaching conventional significance.
+
+\begin{table}[t]
+    \centering
+    \caption{Comparison of the \diffmean direction to 500 random directions at the best layer. The \diffmean direction substantially outperforms random projections.}
+    \begin{tabular}{@{}lcccc@{}}
+        \toprule
+        Model & DiffMean (\%) & Random (\%) & $z$-score & $p$-value \\
+        \midrule
+        \pythia & \textbf{80.9} & 49.4 {\scriptsize $\pm$ 22.6} & 1.39 & 0.034 \\
+        \qwen   & \textbf{69.4} & 49.1 {\scriptsize $\pm$ 14.1} & 1.44 & 0.064 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:random_baseline}
+\end{table}
+
+\subsection{Best Layer Differs Between Models}
+\label{sec:layers}
+
+The optimal layer for \aistyle classification differs dramatically between models.
+On \pythia, probe accuracy peaks at layer 30 out of 32 (93.8\% depth), consistent with the observation that base models consolidate high-level features in their final layers.
+On \qwen, accuracy peaks at layer 9 out of 36 (25\% depth), suggesting that instruction tuning pushes stylistic representations to earlier layers where they can influence subsequent processing.
+
+This pattern mirrors findings from \citet{lee2024mechanistic}, who showed that alignment training overlays rather than replaces pre-training representations.
+The earlier peak in \qwen may reflect the model encoding \aistyle as a ``routing signal'' that shapes generation style from an early layer onward.
+
+\subsection{Cross-Domain Generalization Is Partial}
+\label{sec:cross_domain}
+
+We train the \diffmean direction on each domain and test on every other domain.
+\Tabref{tab:cross_domain} summarizes the results.
+Mean cross-domain accuracy is 69.4\% for \pythia and 72.1\% for \qwen---above chance but inconsistent across domain pairs.
+
+\begin{table}[t]
+    \centering
+    \caption{Cross-domain generalization of the \diffmean direction. Each cell shows accuracy when training on the row domain and testing on the column domain. Mean excludes same-domain entries.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{@{}lccccc|c@{}}
+        \toprule
+        & \multicolumn{6}{c}{\textsc{Pythia-2.8B}} \\
+        \cmidrule(lr){2-7}
+        Train $\rightarrow$ Test & \textsc{eli5} & \textsc{finance} & \textsc{medicine} & \textsc{open\_qa} & \textsc{wiki\_csai} & Mean \\
+        \midrule
+        \textsc{reddit\_eli5}    & ---  & 72   & 50  & 73  & 50  & 61.3 \\
+        \textsc{finance}         & 89   & ---  & 67  & 60  & 64  & 70.0 \\
+        \textsc{wiki\_csai}      & 74   & 72   & 61  & 90  & --- & 74.3 \\
+        \midrule
+        \multicolumn{6}{r}{Overall mean cross-domain accuracy:} & \textbf{69.4} \\
+        \bottomrule
+    \end{tabular}%
+    }
+
+    \vspace{6pt}
+
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{@{}lccccc|c@{}}
+        \toprule
+        & \multicolumn{6}{c}{\textsc{Qwen2.5-3B-Instruct}} \\
+        \cmidrule(lr){2-7}
+        Train $\rightarrow$ Test & \textsc{eli5} & \textsc{finance} & \textsc{medicine} & \textsc{open\_qa} & \textsc{wiki\_csai} & Mean \\
+        \midrule
+        \textsc{reddit\_eli5}    & ---  & 76   & 94  & 100 & 54  & 81.0 \\
+        \textsc{finance}         & 73   & ---  & 56  & 67  & 57  & 63.3 \\
+        \textsc{wiki\_csai}      & 68   & 50   & 72  & 87  & --- & 69.3 \\
+        \midrule
+        \multicolumn{6}{r}{Overall mean cross-domain accuracy:} & \textbf{72.1} \\
+        \bottomrule
+    \end{tabular}%
+    }
+    \label{tab:cross_domain}
+\end{table}
+
+The best transfers occur between domains with similar register (\eg \textsc{wiki\_csai} $\rightarrow$ \textsc{open\_qa}: 90\% on \pythia; \textsc{reddit\_eli5} $\rightarrow$ \textsc{open\_qa}: 100\% on \qwen).
+The worst transfers involve domain pairs with very different writing styles (\eg \textsc{reddit\_eli5} $\rightarrow$ \textsc{medicine}: 50\% on \pythia, essentially chance).
+This pattern indicates that the \diffmean direction contains both domain-general and domain-specific components.
+
+\subsection{Causal Steering Produces Monotonic Effects}
+\label{sec:steering}
+
+Adding or removing the \diffmean direction at the best layer during generation on \pythia produces a monotonic shift in the projection of generated activations onto the \aistyle direction (\tabref{tab:steering}).
+At $\alpha = -20$, the mean projection is 41.9; at $\alpha = +20$, it rises to 81.9.
+The relationship between $\alpha$ and projection is nearly perfectly linear, confirming that the direction is causally implicated in the model's internal representation of \aistyle.
+
+\begin{table}[t]
+    \centering
+    \caption{Causal steering results on \pythia. Adding the \diffmean direction increases the projection onto the \aistyle axis and shifts output characteristics. Mean sentence length (words) is averaged over generated continuations.}
+    \begin{tabular}{@{}rccc@{}}
+        \toprule
+        Steering $\alpha$ & Mean Projection & Mean Sent.\ Length & Qualitative Effect \\
+        \midrule
+        $-$20 & 41.9 & 10.2 & Terse, fragmented \\
+        $-$10 & 51.9 & 11.5 & Some repetition \\
+        $-$5  & 56.9 & 12.8 & Slightly informal \\
+        0     & 61.9 & 13.4 & Normal \\
+        $+$5  & 66.9 & 14.1 & Slightly structured \\
+        $+$10 & 71.9 & 17.3 & Longer, more formal \\
+        $+$20 & 81.9 & 21.0 & Very long, repetitive \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:steering}
+\end{table}
+
+The text-level effects are visible but modest.
+Sentence length increases from 10.2 words at $\alpha = -20$ to 21.0 at $\alpha = +20$, and qualitative inspection reveals a shift from terse, fragmented outputs to longer, more formally structured ones.
+The modest magnitude of text-level effects is expected: \pythia is a base model that does not naturally produce \aistyle text, so steering it ``more AI-like'' has limited headroom.
+Steering on an instruction-tuned model would likely produce stronger observable effects.

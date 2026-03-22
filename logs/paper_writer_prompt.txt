@@ -1,0 +1,798 @@
+You are an academic paper writer. Generate a complete NEURIPS style paper
+based on the experiment results provided.
+
+════════════════════════════════════════════════════════════════════════════════
+                         IMPORTANT: BEFORE YOU START
+════════════════════════════════════════════════════════════════════════════════
+
+Before writing any content, you MUST complete these steps:
+
+1. READ THE SKILL: Review the paper-writer skill at .claude/skills/paper-writer/SKILL.md
+2. READ THE STYLE GUIDE: Study templates/paper_writing/lab_style_guide.md carefully
+3. REVIEW EXAMPLES: Browse paper_examples/ for formatting and language patterns:
+   - Look at sections/1.introduction.tex for language style
+   - Look at tables/*.tex for table formatting
+   - Look at commands/*.tex for macro usage
+4. VERIFY COMMAND TEMPLATES: Command templates (math.tex, general.tex, macros.tex) are pre-copied to paper_draft/commands/
+
+CRITICAL: Reference example papers for FORMATTING and LANGUAGE STYLE only.
+Do NOT copy content, phrasing, or narrative structure from the example papers.
+The examples are in a different research domain - focus only on presentation style.
+
+════════════════════════════════════════════════════════════════════════════════
+                            EXPERIMENT REPORT
+════════════════════════════════════════════════════════════════════════════════
+
+# Is There a &#34;Sounds Like AI&#34; Direction in the Residual Stream?
+
+## 1. Executive Summary
+
+We investigated whether the stylistic quality that makes text &#34;sound like AI&#34; is linearly represented in the residual stream of large language models. Using contrastive activation analysis on paired human/ChatGPT text from the HC3 dataset, we found that **linear probes achieve 93-96% accuracy** distinguishing human from AI text based solely on residual stream activations, across two architecturally different models (Pythia-2.8B and Qwen2.5-3B-Instruct). The difference-in-means direction alone achieves 69-81% accuracy, significantly above chance. Cross-domain generalization averages 69-72%, and causal steering along the direction produces a monotonic shift in activation projections. These results provide strong evidence that &#34;sounding like AI&#34; is indeed a linearly decodable feature in the residual stream, though the relatively modest DiffMean accuracy and cross-domain transfer suggest it may be a multi-dimensional or partially domain-specific phenomenon rather than a single clean direction like refusal.
+
+## 2. Goal
+
+**Hypothesis**: Large language models linearly represent &#34;AI style&#34; in their residual stream activations — the same way truth, refusal, and sentiment have been shown to be linearly encoded.
+
+**Why this matters**: If AI-style output is a controllable linear feature, it implies (1) models have internal representations of writing style that are geometrically simple, (2) AI text could be detected or steered via internal representations rather than surface features, and (3) alignment training creates structured, interpretable stylistic signatures.
+
+**Expected impact**: Understanding the geometry of &#34;AI style&#34; could inform better alignment techniques, more robust AI text detection, and controllable generation.
+
+## 3. Data Construction
+
+### Dataset Description
+- **Source**: HC3 (Hello-SimpleAI/HC3) — paired human and ChatGPT responses to the same questions
+- **Size**: 392 paired samples (after filtering for minimum length of 10 words)
+- **Text truncation**: 512 characters per sample
+- **Domains**: reddit_eli5 (271), finance (74), medicine (18), open_qa (15), wiki_csai (14)
+
+### Example Samples
+
+| Question | Human Answer (excerpt) | ChatGPT Answer (excerpt) |
+|----------|----------------------|-------------------------|
+| Why is every book a &#34;NY Times #1 Best Seller&#34;? | &#34;Basically there are many categories of Best Seller...&#34; | &#34;There are many different best seller lists that are published by various organizations...&#34; |
+| If salt is so bad for cars, why do we use it? | &#34;salt is good for not dying in car crashes...&#34; | &#34;Salt is used on roads to help melt ice and snow and improve traction during the winter months...&#34; |
+
+The human answers tend to be informal, opinionated, and direct. The ChatGPT answers are more structured, comprehensive, and hedging.
+
+### Preprocessing
+1. Loaded JSONL data from HC3
+2. Filtered to entries with both human and ChatGPT answers
+3. Selected first answer from each category
+4. Filtered samples with fewer than 10 words
+5. Truncated to 512 characters
+6. Shuffled with seed=42
+
+## 4. Experiment Description
+
+### Methodology
+
+#### High-Level Approach
+Following the contrastive activation analysis methodology established by Arditi et al. (refusal direction) and Marks &amp; Tegmark (geometry of truth):
+
+1. Process paired human/AI texts through a model using TransformerLens
+2. Collect residual stream activations at the last token position for each layer
+3. Compute the difference-in-means (DiffMean) direction: `direction = mean(AI activations) - mean(human activations)`
+4. Validate via linear probes, PCA visualization, random direction baselines, cross-domain transfer, and causal steering
+
+#### Why This Method?
+Difference-in-means has been shown by Marks &amp; Tegmark (2024) to identify more causally relevant directions than logistic regression. We use it as our primary direction-finding method, with linear probes (SGDClassifier) as a stronger classification baseline.
+
+### Implementation Details
+
+#### Models
+| Model | Type | Layers | d_model | Notes |
+|-------|------|--------|---------|-------|
+| Pythia-2.8B | Base (autoregressive) | 32 | 2560 | Pre-training only, no alignment |
+| Qwen2.5-3B-Instruct | Instruct-tuned | 36 | 2048 | RLHF-aligned, generates &#34;AI style&#34; text |
+
+#### Hardware
+- GPU: NVIDIA RTX A6000 (49 GB VRAM)
+- Precision: float16 for model inference, float32 for analysis
+
+#### Hyperparameters
+| Parameter | Value | Justification |
+|-----------|-------|---------------|
+| Batch size | 8 | Memory-efficient for activation caching |
+| Max tokens | 128 | Captures sufficient context |
+| Activation position | Last token | Standard for sequence-level features |
+| Random seed | 42 | Reproducibility |
+| SGDClassifier alpha | 1e-4 | Light regularization |
+| Cross-validation | 5-fold stratified | Standard for probe accuracy |
+| Random baseline | 500 directions | Sufficient for permutation test |
+
+### Experimental Protocol
+
+#### Reproducibility
+- Random seed: 42 (Python, NumPy, PyTorch)
+- Single GPU run per model
+- Activations saved to disk for reproducibility
+- All code in `src/` directory
+
+### Results
+
+#### Experiment 1: Linear Probe Accuracy by Layer
+
+**Pythia-2.8B (Base Model)**:
+
+| Layer | LR Accuracy (5-fold CV) | DiffMean 1D Accuracy |
+|-------|-------------------------|---------------------|
+| 0 | 0.807 ± 0.119 | 0.724 |
+| 5 | 0.824 ± 0.142 | 0.755 |
+| 10 | 0.903 ± 0.032 | 0.763 |
+| 15 | 0.912 ± 0.019 | 0.763 |
+| 20 | 0.920 ± 0.019 | 0.768 |
+| 25 | 0.907 ± 0.041 | 0.765 |
+| **30** | **0.931 ± 0.022** | **0.809** |
+| 31 | 0.921 ± 0.023 | 0.798 |
+
+Best layer: **30 out of 32** (93.8% depth) — accuracy peaks in the final layers.
+
+**Qwen2.5-3B-Instruct**:
+
+| Layer | LR Accuracy (5-fold CV) | DiffMean 1D Accuracy |
+|-------|-------------------------|---------------------|
+| 0 | 0.904 ± 0.014 | 0.696 |
+| 5 | 0.912 ± 0.013 | 0.681 |
+| **9** | **0.959 ± 0.016** | **0.694** |
+| 15 | 0.935 ± 0.024 | 0.681 |
+| 20 | 0.946 ± 0.026 | 0.686 |
+| 25 | 0.940 ± 0.021 | 0.656 |
+| 30 | 0.907 ± 0.025 | 0.673 |
+| 35 | 0.906 ± 0.016 | 0.676 |
+
+Best layer: **9 out of 36** (25% depth) — accuracy peaks in early-middle layers.
+
+#### Experiment 2: Random Direction Baseline
+
+| Model | DiffMean Acc | Random Acc (mean ± std) | Z-score | p-value |
+|-------|-------------|------------------------|---------|---------|
+| Pythia-2.8B | 0.809 | 0.494 ± 0.226 | 1.39 | 0.034 |
+| Qwen2.5-3B-Instruct | 0.694 | 0.491 ± 0.141 | 1.44 | 0.064 |
+
+The DiffMean direction significantly outperforms random directions (p &lt; 0.05 for Pythia, p = 0.064 for Qwen).
+
+#### Experiment 3: Cross-Domain Generalization
+
+**Pythia-2.8B** (mean cross-domain accuracy: **69.4%**):
+- Best transfer: wiki_csai → open_qa (90%), finance → reddit_eli5 (89%)
+- Worst transfer: reddit_eli5 → medicine (50%), reddit_eli5 → wiki_csai (50%)
+
+**Qwen2.5-3B-Instruct** (mean cross-domain accuracy: **72.1%**):
+- Best transfer: reddit_eli5 → open_qa (100%), reddit_eli5 → medicine (94%)
+- Worst transfer: wiki_csai → finance (50%), reddit_eli5 → wiki_csai (54%)
+
+Cross-domain transfer is above chance on average but inconsistent, suggesting the &#34;AI style&#34; direction has both domain-general and domain-specific components.
+
+#### Experiment 4: Causal Steering (Pythia-2.8B)
+
+Adding/removing the DiffMean direction at the best layer during generation:
+
+| Steering α | Mean Projection onto AI Direction | Observed Effect |
+|-----------|----------------------------------|-----------------|
+| -20.0 | 41.87 | Shorter, more terse outputs |
+| -10.0 | 51.88 | Mixed; some repetition |
+| -5.0 | 56.88 | Slightly more informal |
+| 0.0 | 61.87 | Normal generation |
+| +5.0 | 66.88 | Normal, slightly more structured |
+| +10.0 | 71.87 | Longer sentences, more formal |
+| +20.0 | 81.88 | Very long sentences, repetitive patterns |
+
+The projection shifts monotonically with α, confirming the direction is causally effective. The effect on generated text is visible but subtle — the strongest changes are in sentence length (14.1 words at α=+5 → 21.0 at α=+20) and hedging reduction at extreme positive α.
+
+**Note**: As Pythia is a base model (not instruction-tuned), the steering effects are less dramatic than would be expected from an instruct model. The direction still causally shifts activations along the expected axis.
+
+### Output Locations
+- Probe results: `results/probe_results.csv`, `results/qwen/probe_results.csv`
+- Cross-domain: `results/cross_domain_results.csv`, `results/qwen/cross_domain_results.csv`
+- Steering outputs: `results/steering_results.csv`
+- Summary JSONs: `results/summary.json`, `results/qwen/summary.json`
+- Plots: `results/plots/`, `results/qwen/plots/`
+
+## 5. Result Analysis
+
+### Key Findings
+
+1. **&#34;AI style&#34; is linearly decodable from residual stream activations.** Linear probes achieve 93.1% (Pythia) and 95.9% (Qwen) accuracy at classifying human vs AI text, far above the 50% chance baseline.
+
+2. **The signal exists in both base and instruct-tuned models.** Even Pythia-2.8B (a base model with no alignment training) can distinguish human from ChatGPT text in its residual stream, suggesting the model learns stylistic features during pre-training.
+
+3. **The best layer differs dramatically by model architecture.** Pythia peaks at layer 30/32 (final layers), while Qwen peaks at layer 9/36 (early-middle). This may reflect architectural differences or the effect of instruction tuning redistributing representations.
+
+4. **The DiffMean direction captures a meaningful but incomplete signal.** The 1D DiffMean projection achieves 69-81% accuracy — substantially above chance but below the full linear probe (~93-96%). This gap suggests &#34;AI style&#34; may be multi-dimensional (multiple style features composed together) rather than a single direction like refusal.
+
+5. **Cross-domain generalization is partial (69-72% mean).** The direction transfers across some domains (e.g., reddit_eli5 → open_qa) but fails on others (reddit_eli5 → wiki_csai). This indicates domain-specific confounds in the style signal.
+
+6. **Causal steering produces monotonic projection shifts.** Adding the direction linearly increases the projection onto the AI-style axis, confirming causal relevance. The effect on generated text is visible but modest for this base model.
+
+### Hypothesis Testing Results
+
+| Hypothesis | Verdict | Evidence |
+|-----------|---------|----------|
+| H1: Linear separability | **Supported** | 93-96% linear probe accuracy |
+| H2: Layer specificity | **Supported** | Clear peaks at specific layers |
+| H3: Causal relevance | **Partially supported** | Monotonic projection shift; modest text effects |
+| H4: Cross-domain generality | **Partially supported** | Mean 69-72%, but inconsistent |
+
+### Comparison to Prior Work
+
+| Feature | Refusal (Arditi et al.) | Truth (Marks &amp; Tegmark) | AI Style (This Work) |
+|---------|------------------------|------------------------|---------------------|
+| 1D DiffMean accuracy | ~95% | ~85-97% | 69-81% |
+| Linear probe accuracy | ~95% | ~90-98% | 93-96% |
+| Cross-model transfer | Yes (13 models) | Yes | Not tested |
+| Causal effect | Strong (enables/disables refusal) | Strong (flips truth judgments) | Moderate (shifts projections) |
+
+The &#34;AI style&#34; direction is less cleanly one-dimensional than refusal or truth, suggesting it&#39;s a more complex, multi-faceted property.
+
+### Surprises and Insights
+
+1. **Base models distinguish AI style.** Pythia-2.8B, which has never been instruction-tuned, can still distinguish human from ChatGPT text in its residual stream. This means the model has learned enough about natural language style during pre-training to detect the statistical signatures of AI-generated text.
+
+2. **The instruct model encodes the direction earlier.** Qwen&#39;s best layer (25% depth) vs Pythia&#39;s (93% depth) suggests instruction tuning makes the style distinction more accessible earlier in processing.
+
+3. **Large gap between LR and DiffMean accuracy.** The 15-25 percentage point gap suggests &#34;AI style&#34; is a subspace rather than a single direction — multiple style features (formality, hedging, verbosity, structure) may each have their own direction.
+
+### Limitations
+
+1. **Single AI source**: HC3 only contains ChatGPT text. The direction may be ChatGPT-specific rather than &#34;AI&#34; general.
+2. **Content confounds**: Despite pairing on questions, topic/domain differences may contaminate the style signal.
+3. **Small sample size for some domains**: Medicine (18), open_qa (15), wiki_csai (14) limit cross-domain reliability.
+4. **Base model steering**: Causal steering on Pythia (base model) is less informative than on an instruct model, since Pythia doesn&#39;t naturally produce &#34;AI-like&#34; text.
+5. **Token position**: We only used the last token position; the direction might be stronger at other positions.
+6. **No human evaluation**: We used automated proxy metrics for &#34;AI-likeness&#34; rather than human judgments.
+
+## 6. Conclusions
+
+### Summary
+Yes, there is evidence of a &#34;sounds like AI&#34; direction in the residual stream. Linear probes achieve 93-96% accuracy distinguishing human from AI text based on residual stream activations across two different model architectures. However, unlike the clean single-direction results for refusal and truth, the &#34;AI style&#34; signal appears to be multi-dimensional — the 1D DiffMean direction captures only a portion of the full discriminative signal. This is consistent with &#34;AI style&#34; being a composite of multiple stylistic features rather than a single atomic concept.
+
+### Implications
+- **For mechanistic interpretability**: AI style joins truth, refusal, and sentiment as a linearly decodable property, but it&#39;s more complex (multi-dimensional subspace vs single direction).
+- **For AI text detection**: Internal representations offer a complementary signal to surface-level detectors, potentially more robust to paraphrasing.
+- **For alignment**: The strong signal in base models suggests pre-training already creates style-relevant representations that alignment training builds upon.
+
+### Confidence in Findings
+**Moderate-to-high** for the existence of linear structure; **moderate** for the causal claims. The linear probe results are robust (5-fold CV, consistent across models), but the causal steering experiment was limited to a base model and showed modest text-level effects. Cross-domain transfer was inconsistent, warranting caution about generality.
+
+## 7. Next Steps
+
+### Immediate Follow-ups
+1. **Multi-generator data**: Test with text from Claude, Gemini, GPT-4 to see if the direction generalizes beyond ChatGPT style.
+2. **Instruct model steering**: Run causal steering on Qwen2.5-3B-Instruct to measure stronger text-level effects.
+3. **Subspace analysis**: Use PCA or sparse autoencoders to decompose the &#34;AI style&#34; into component features (formality, hedging, verbosity, structure).
+
+### Alternative Approaches
+- **SAE decomposition**: Use sparse autoencoders to find individual interpretable features that compose into &#34;AI style.&#34;
+- **Contrastive pairs with controlled content**: Use the model itself to generate matched human-style and AI-style responses to the same prompt, controlling for content more tightly.
+- **Observer vs generator analysis**: Compare the direction found when a model reads AI text (observer) vs when it generates AI text (generator).
+
+### Open Questions
+1. Is this a single direction or a subspace? The LR/DiffMean accuracy gap suggests the latter.
+2. How does the direction relate to specific stylistic features (hedging, formality, structure)?
+3. Does the direction generalize across model families?
+4. Is the direction present before alignment training, or does it emerge during RLHF?
+
+## References
+
+### Papers
+1. Arditi et al. (2024). &#34;Refusal in Language Models Is Mediated by a Single Direction.&#34; COLM 2024.
+2. Marks &amp; Tegmark (2024). &#34;The Geometry of Truth.&#34; COLM 2024.
+3. Turner et al. (2023). &#34;Steering Language Models With Activation Engineering.&#34;
+4. Rimsky et al. (2024). &#34;Steering Llama 2 via Contrastive Activation Addition.&#34; ACL 2024.
+5. Park et al. (2023). &#34;The Linear Representation Hypothesis.&#34;
+
+### Datasets
+- HC3: Hello-SimpleAI/HC3 (Guo et al., 2023)
+
+### Tools
+- TransformerLens (Neel Nanda)
+- PyTorch 2.10.0
+- scikit-learn (SGDClassifier, PCA)
+
+### Models
+- EleutherAI/Pythia-2.8B
+- Qwen/Qwen2.5-3B-Instruct
+
+
+════════════════════════════════════════════════════════════════════════════════
+                            RESEARCH PLAN
+════════════════════════════════════════════════════════════════════════════════
+
+# Research Plan: Is There a &#34;Sounds Like AI&#34; Direction in the Residual Stream?
+
+## Motivation &amp; Novelty Assessment
+
+### Why This Research Matters
+LLMs produce text with a distinctive &#34;AI style&#34; — formal, hedging, verbose, with numbered lists and diplomatic phrasing. If this style is linearly encoded as a direction in the residual stream (like truth, refusal, and sentiment have been shown to be), it would mean: (1) AI-sounding output is a controllable feature, not an emergent artifact; (2) models could be steered to sound more or less &#34;AI-like&#34; without retraining; (3) AI text detection could leverage internal representations rather than surface features.
+
+### Gap in Existing Work
+The linear representation hypothesis has been validated for truth (Marks &amp; Tegmark), refusal (Arditi et al.), sentiment (Turner et al.), and hallucination (O&#39;Neill et al.) — but nobody has investigated whether &#34;sounding like AI&#34; is one of these linear features. AI text detection research focuses on surface-level stylometric features or output probabilities, not internal model representations. This is a clear gap at the intersection of mechanistic interpretability and AI-generated text detection.
+
+### Our Novel Contribution
+We are the first to directly test whether &#34;sounding like AI&#34; is linearly represented in the residual stream, using established contrastive activation analysis methods adapted for stylistic rather than factual/behavioral properties.
+
+### Experiment Justification
+- **Experiment 1 (Direction Finding)**: Use difference-in-means on HC3 paired data to find the candidate &#34;AI style&#34; direction at each layer. Necessary to establish whether the direction exists at all.
+- **Experiment 2 (Probe Validation)**: Train linear probes to classify human vs AI text from activations. Tests whether the separation is real and measurable.
+- **Experiment 3 (Layer Analysis)**: Analyze which layers encode the direction most strongly. Identifies where in the model the concept is represented.
+- **Experiment 4 (Causal Validation)**: Ablate/add the direction and measure if model outputs change style. Tests whether the direction is causally relevant, not just correlated.
+- **Experiment 5 (Generalization)**: Test cross-domain transfer (train on reddit_eli5, test on other HC3 domains). Tests whether we found a general &#34;AI style&#34; direction vs domain-specific artifact.
+
+## Research Question
+Does there exist a linear direction in the residual stream of an LLM that corresponds to text &#34;sounding like AI,&#34; and is this direction causally implicated in producing AI-style outputs?
+
+## Hypothesis Decomposition
+1. **H1 (Existence)**: Human-written and AI-written text produce linearly separable activations in the residual stream.
+2. **H2 (Specificity)**: The separating direction is concentrated in specific layers (likely middle-to-late layers, by analogy with truth/refusal).
+3. **H3 (Causality)**: Intervening on this direction changes model output style (adding it makes output more AI-like; removing it makes output more human-like).
+4. **H4 (Generality)**: The direction generalizes across text domains/topics.
+
+## Proposed Methodology
+
+### Approach
+Follow the established contrastive activation analysis pipeline from Arditi et al. and Marks &amp; Tegmark, adapted for &#34;AI style&#34;:
+1. Process paired human/AI texts through a model
+2. Collect residual stream activations
+3. Compute difference-in-means direction
+4. Validate via probes, PCA, and causal interventions
+
+### Model
+**Gemma-2-2B** via TransformerLens — small enough for rapid iteration, well-supported, and exhibits clear &#34;AI style&#34; in its outputs.
+
+### Dataset
+**HC3** (Hello-SimpleAI) — ~24K paired human/ChatGPT QA responses. Same question with multiple human and ChatGPT answers. The content-controlled pairing isolates stylistic differences.
+
+### Baselines
+- Random direction (null baseline)
+- PCA top component
+- Logistic regression probe direction (compared to DiffMean)
+
+### Evaluation Metrics
+- Linear probe accuracy (human vs AI classification)
+- Cosine similarity of directions across layers
+- PCA visualization (qualitative linear separation)
+- Generation quality change under intervention (measured by perplexity and AI-detection classifier)
+
+### Statistical Analysis Plan
+- Bootstrap confidence intervals for probe accuracy
+- Permutation test for direction significance (compare to random directions)
+- Cohen&#39;s d for effect sizes
+
+## Expected Outcomes
+- **Supporting H1**: Probe accuracy &gt; 85% at best layer
+- **Supporting H2**: Clear peak in probe accuracy at specific layers
+- **Supporting H3**: Measurable style change under intervention
+- **Supporting H4**: Cross-domain probe accuracy &gt; 75%
+- **Refuting**: Probe accuracy near chance (50%), no causal effect
+
+## Timeline
+1. Environment setup &amp; data prep: 15 min
+2. Activation collection: 30 min
+3. Direction finding &amp; probes: 20 min
+4. Causal validation: 30 min
+5. Cross-domain analysis: 15 min
+6. Documentation: 20 min
+
+## Potential Challenges
+- Model may need significant GPU memory for activation storage → use batching
+- HC3 only has ChatGPT text → limited generator diversity
+- &#34;AI style&#34; may be multi-dimensional rather than a single direction → test with multiple directions
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          LITERATURE REVIEW
+════════════════════════════════════════════════════════════════════════════════
+
+# Literature Review: Is There a &#34;Sounds Like AI&#34; Direction in the Residual Stream?
+
+## Research Area Overview
+
+This research sits at the intersection of three active areas: (1) the linear representation hypothesis in LLMs, (2) activation steering and representation engineering, and (3) AI-generated text detection. The core question is whether the stylistic quality that makes text &#34;sound like AI&#34; — characterized by overly formal language, hedging, verbose explanations, numbered lists, and other telltale patterns — is linearly represented in a model&#39;s residual stream, analogous to how truth, refusal, and other high-level concepts have been shown to be linearly encoded.
+
+## Key Papers
+
+### 1. Refusal in Language Models Is Mediated by a Single Direction (Arditi et al., 2024)
+- **Authors**: Andy Arditi, Oscar Obeso, Aaquib Syed, Daniel Paleka, Nina Rimsky, Wes Gurnee, Neel Nanda
+- **Source**: COLM 2024 (arXiv: 2406.11717)
+- **Key Contribution**: Demonstrates that refusal behavior across 13 chat models (up to 72B parameters) is mediated by a single direction in the residual stream. Erasing this direction disables refusal; adding it elicits refusal on harmless inputs.
+- **Methodology**:
+  1. Collect residual stream activations on harmful vs harmless instructions
+  2. Compute difference-in-means across all layers and positions
+  3. Select the direction with highest separation
+  4. Validate via ablation (removing the direction) and addition (inserting it)
+- **Results**: Single direction ablation achieves jailbreak success across all tested models with minimal capability degradation. Adversarial suffixes work by suppressing this direction.
+- **Relevance to Our Research**: This is the most direct template. If refusal is a single direction, &#34;sounds like AI&#34; might also be a single (or few) direction(s). The methodology — contrastive activation collection, difference-in-means, ablation/addition validation — transfers directly.
+- **Citations**: 519
+
+### 2. The Geometry of Truth (Marks &amp; Tegmark, 2024)
+- **Authors**: Samuel Marks, Max Tegmark
+- **Source**: COLM 2024 (arXiv: 2310.06824)
+- **Key Contribution**: Shows that LLMs linearly represent the truth/falsehood of factual statements. Introduces mass-mean probing (difference-in-means with covariance correction), which identifies more causally-implicated directions than logistic regression.
+- **Methodology**:
+  1. Curate true/false statement datasets with controlled diversity
+  2. Localize truth representations via activation patching
+  3. Visualize with PCA (clear linear separation emerges)
+  4. Train probes (LR, mass-mean, CCS) and test cross-dataset generalization
+  5. Causal interventions: shift activations along probe direction
+- **Key Finding**: Mass-mean probes generalize as well as LR/CCS for classification but identify directions that are MORE causally implicated (NIE of 0.85-0.97 vs 0.13-0.52 for LR on some conditions).
+- **Datasets Used**: cities, sp_en_trans, larger_than, companies_true_false, counterfact_true_false, likely
+- **Code**: https://github.com/saprmarks/geometry-of-truth
+- **Relevance**: The mass-mean probing technique is ideal for our research. We should use difference-in-means (not logistic regression) to find the &#34;sounds like AI&#34; direction, as it better identifies causally-relevant directions.
+- **Citations**: 427
+
+### 3. Steering Language Models With Activation Engineering (Turner et al., 2023)
+- **Authors**: Alexander Matt Turner et al.
+- **Source**: arXiv: 2308.10248
+- **Key Contribution**: Introduces Activation Addition (ActAdd) — computing steering vectors from contrastive prompt pairs (e.g., &#34;Love&#34; vs &#34;Hate&#34;) and adding them during inference.
+- **Results**: Achieves SOTA on negative-to-positive sentiment shift and detoxification. Works with a single pair of data points.
+- **Relevance**: Demonstrates that high-level output properties like topic and sentiment can be controlled via simple activation addition. If &#34;AI style&#34; is linearly represented, ActAdd-style steering should work.
+- **Citations**: 400
+
+### 4. Steering Llama 2 via Contrastive Activation Addition (Rimsky et al., 2024)
+- **Authors**: Nina Rimsky, Nick Gabrieli, Julia Schulz, Meg Tong, Evan Hubinger, Alexander Matt Turner
+- **Source**: ACL 2024 (arXiv: 2312.06681)
+- **Key Contribution**: Scales up ActAdd with Contrastive Activation Addition (CAA). Averages residual stream differences over many contrastive pairs for more robust steering vectors.
+- **Methodology**: Compute steering vector = mean(activations on positive examples) - mean(activations on negative examples). Add at all token positions after user prompt.
+- **Results**: Significantly alters model behavior on sycophancy, corrigibility, hallucination, and other behavioral axes.
+- **Code**: https://github.com/nrimsky/CAA
+- **Relevance**: CAA methodology directly applicable: use human-written text as one class and AI-written text as another to compute &#34;AI style&#34; steering vectors.
+- **Citations**: 579
+
+### 5. The Linear Representation Hypothesis and the Geometry of Large Language Models (Park et al., 2023)
+- **Authors**: Kiho Park, Yo Joong Choe, Victor Veitch
+- **Source**: arXiv: 2311.09421
+- **Key Contribution**: Provides formal theoretical grounding for the linear representation hypothesis. Defines linear representation using counterfactuals and proves connections to linear probing and model steering.
+- **Key Result**: Identifies a non-Euclidean (causal) inner product that respects language structure, unifying all notions of linear representation.
+- **Relevance**: Theoretical framework for understanding what &#34;linear direction for AI style&#34; would mean formally.
+- **Citations**: 408
+
+### 6. Sparse Autoencoders Find Highly Interpretable Features in Language Models (Cunningham et al., 2023)
+- **Authors**: Hoagy Cunningham, Aidan Ewart, Logan Riggs, Robert Huben, Lee Sharkey
+- **Source**: arXiv: 2309.08902
+- **Key Contribution**: Demonstrates SAEs can decompose activations into sparse, interpretable features, resolving polysemanticity/superposition.
+- **Relevance**: SAEs could identify individual features contributing to &#34;AI style&#34; — e.g., features for hedging, formal language, numbered lists. These might compose into the overall &#34;sounds like AI&#34; direction.
+- **Citations**: 948
+
+### 7. Language Models Represent Space and Time (Gurnee &amp; Tegmark, 2023)
+- **Authors**: Wes Gurnee, Max Tegmark
+- **Source**: arXiv: 2309.08600
+- **Key Contribution**: Shows LLMs learn linear representations of spatial and temporal concepts. Identifies individual &#34;space neurons&#34; and &#34;time neurons.&#34;
+- **Relevance**: Demonstrates that abstract concepts (space, time) are linearly encoded. &#34;AI style&#34; is another abstract property that might follow the same pattern.
+- **Citations**: 280
+
+### 8. A Mechanistic Understanding of Alignment Algorithms: DPO and Toxicity (Lee et al., 2024)
+- **Authors**: Andrew Lee et al.
+- **Source**: arXiv: 2401.01967
+- **Key Contribution**: Shows that DPO doesn&#39;t remove toxic capabilities but bypasses them. Pre-training representations persist but are routed around.
+- **Relevance**: Suggests that &#34;AI style&#34; may be an artifact of alignment/RLHF training that overlays pre-training representations. The direction might emerge during fine-tuning.
+- **Citations**: 166
+
+### 9. Improving Activation Steering with Mean-Centring (Jorgensen et al., 2023)
+- **Authors**: Ole Jorgensen et al.
+- **Source**: arXiv: 2310.15154
+- **Key Contribution**: Shows that mean-centring (subtracting the overall mean from steering vectors) significantly improves effectiveness.
+- **Methodology**: steering_vector = mean(target_activations) - mean(all_activations)
+- **Relevance**: Mean-centring should be applied when computing the &#34;sounds like AI&#34; direction to improve signal quality.
+- **Citations**: 59
+
+### 10. A Single Direction of Truth (O&#39;Neill et al., 2025)
+- **Authors**: Charles O&#39;Neill et al.
+- **Source**: arXiv: 2503.05858
+- **Key Contribution**: Shows a generator-agnostic observer model can detect hallucinations via a linear probe on its residual stream. Manipulating this direction causally steers hallucination rates.
+- **Relevance**: Demonstrates the observer-model approach — using one model to probe another&#39;s outputs. Relevant if we want to detect &#34;AI style&#34; from an observer model&#39;s perspective.
+- **Citations**: 4
+
+## Common Methodologies
+
+### Direction-Finding Approaches
+1. **Difference-in-Means (DiffMean)**: Compute mean activations for each class, take the difference. Simple, optimization-free, and highly causal. Used in Marks &amp; Tegmark, Arditi et al.
+2. **Contrastive Activation Addition (CAA)**: Average activation differences over many contrastive pairs. More robust than single-pair methods. Used in Rimsky et al.
+3. **Linear Probing (Logistic Regression)**: Train a linear classifier. Good for classification but identifies less causally-relevant directions than DiffMean.
+4. **PCA**: Visualize top principal components of centered activations. Useful for confirming linear structure exists.
+5. **Sparse Autoencoders**: Decompose activations into sparse features. Can identify individual contributing features.
+
+### Validation Approaches
+1. **Ablation**: Remove the direction from residual stream; check if the behavior disappears.
+2. **Addition**: Add the direction; check if the behavior is induced.
+3. **Cross-dataset transfer**: Train probe on one dataset, test on another.
+4. **Normalized Indirect Effect (NIE)**: Quantify how much an intervention changes model outputs.
+
+## Standard Baselines
+- **Random direction**: Ablating/adding a random direction should have no systematic effect
+- **PCA-based direction**: Top PC of combined data
+- **Logistic regression probe**: Standard classification approach
+- **Few-shot prompting**: Behavioral baseline without activation intervention
+
+## Evaluation Metrics
+- **Classification accuracy**: Can a linear probe trained on the direction classify human vs. AI text?
+- **Cross-dataset generalization**: Does the direction transfer across domains/genres?
+- **Normalized Indirect Effect (NIE)**: Does intervening along the direction causally change model behavior?
+- **Cosine similarity**: How aligned are directions found from different datasets/layers?
+- **Steering effectiveness**: Does adding/removing the direction make outputs more/less AI-like?
+
+## Datasets in the Literature
+- **True/false datasets**: cities, sp_en_trans, larger_than (Marks &amp; Tegmark)
+- **Harmful/harmless instructions**: AdvBench, JailbreakBench (Arditi et al.)
+- **Behavioral multiple-choice**: sycophancy, corrigibility, etc. (Rimsky et al.)
+- **HC3**: Human vs. ChatGPT paired responses (for AI detection research)
+- **TuringBench**: Multi-generator human vs. AI text
+
+## Gaps and Opportunities
+
+1. **No prior work directly studies &#34;sounds like AI&#34; as a linear direction.** While truth, refusal, sentiment, toxicity, and hallucination have all been studied as linear features, the specific stylistic quality of &#34;sounding AI-generated&#34; has not been investigated from a mechanistic interpretability perspective.
+
+2. **AI detection research focuses on output-level features, not internal representations.** Most AI text detection work uses surface-level stylometric features or output probabilities, not residual stream directions.
+
+3. **The relationship between &#34;AI style&#34; and alignment is unexplored.** &#34;Sounding like AI&#34; likely emerges during RLHF/alignment training. Understanding this mechanistically could inform better alignment techniques.
+
+4. **Multi-model generalizability is untested.** Does the &#34;sounds like AI&#34; direction transfer across model families, or is it model-specific?
+
+## Recommendations for Our Experiment
+
+### Recommended Approach
+1. **Use HC3 dataset** as primary data source (paired human/ChatGPT responses)
+2. **Process texts through a target LLM** (e.g., Gemma-2-2B, Llama-3.1-8B) using TransformerLens
+3. **Collect residual stream activations** at all layers for the last token position
+4. **Compute difference-in-means direction** (AI activations - human activations) at each layer
+5. **Validate with PCA visualization** — look for linear separation
+6. **Test causal role** — add/remove direction and measure effect on output style
+7. **Test generalization** — train on one domain, test on others
+
+### Recommended Models
+- **Gemma-2-2B**: Small enough for rapid iteration, well-supported by TransformerLens
+- **Llama-3.1-8B-Instruct**: Mid-size model with strong &#34;AI style&#34;
+- **Pythia family**: For scale analysis (70M to 12B)
+
+### Recommended Metrics
+- **Probe accuracy**: Linear probe classification of human vs AI text
+- **NIE**: Causal effect of direction intervention
+- **Perplexity-based AI detection**: Does steering change detectability?
+- **Human evaluation**: Does steering make text sound more/less AI-like?
+
+### Key Methodological Considerations
+- **Use difference-in-means, not logistic regression** — DiffMean finds more causally relevant directions
+- **Apply mean-centring** to improve steering vector quality
+- **Test at multiple layers** — the direction likely emerges at specific layers
+- **Control for content** — ensure the direction captures style, not topic
+- **Include diverse text types** — test generalization across domains
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          PAPER REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+Generate a complete academic paper with the following structure:
+
+1. TITLE
+   - Clear, specific, informative
+   - Should convey main finding or contribution
+
+2. AUTHOR
+   - Use this exact author line in the \author{} block: Ari Holtzman and NeuriCo
+
+3. ABSTRACT (150-250 words)
+   - Problem statement
+   - Approach
+   - Key results
+   - Significance
+
+4. INTRODUCTION
+   - Research problem and motivation
+   - Gap in existing work
+   - Our contribution (be specific)
+   - Paper organization
+
+5. RELATED WORK
+   - Organized by theme/approach
+   - Position our work relative to prior work
+   - Cite papers from literature review
+
+6. METHODOLOGY
+   - Clear description of approach
+   - Experimental setup
+   - Datasets used
+   - Evaluation metrics
+   - Baselines
+
+7. RESULTS
+   - Present results with tables and figures
+   - Statistical analysis
+   - Comparison to baselines
+   - Ablation studies (if applicable)
+
+8. DISCUSSION
+   - Interpretation of results
+   - Limitations
+   - Broader implications
+
+9. CONCLUSION
+   - Summary of contributions
+   - Key findings
+   - Future work
+
+10. REFERENCES
+   - BibTeX format
+   - All cited papers
+
+════════════════════════════════════════════════════════════════════════════════
+                          OUTPUT FORMAT
+════════════════════════════════════════════════════════════════════════════════
+
+Create a MODULAR LaTeX project with the following directory structure:
+
+paper_draft/
+├── main.tex              # Main file that imports all sections
+├── references.bib        # BibTeX references
+├── sections/
+│   ├── abstract.tex      # Abstract content
+│   ├── introduction.tex  # Introduction section
+│   ├── related_work.tex  # Related work section
+│   ├── methodology.tex   # Methodology section
+│   ├── results.tex       # Results section
+│   ├── discussion.tex    # Discussion section
+│   └── conclusion.tex    # Conclusion section
+├── figures/              # Directory for any generated figures
+├── tables/               # Directory for complex standalone tables
+└── appendix/             # Directory for appendix sections (if needed)
+
+INSTRUCTIONS:
+1. First, create the directory structure above (mkdir -p paper_draft/sections paper_draft/figures paper_draft/tables paper_draft/appendix)
+2. Write main.tex using the EXACT preamble for NEURIPS:
+
+   \documentclass{article}
+   \usepackage[final]{neurips_2025}  % NEURIPS style (neurips_2025.sty is in paper_draft/)
+   \usepackage[hidelinks]{hyperref}  % REQUIRED: clickable links
+   \usepackage{booktabs}  % REQUIRED: professional tables
+   \usepackage{graphicx}
+   \usepackage{amsmath,amssymb}
+
+   % Import command files
+   \input{commands/math}
+   \input{commands/general}
+   \input{commands/macros}
+
+   % Use this bibliography style:
+   \bibliographystyle{plainnat}
+
+   \author{Ari Holtzman and NeuriCo}
+
+   - Use \input{sections/...} to include each section
+   - Use \bibliography{references} for references
+3. Write each section file with COMPLETE content (no placeholders)
+4. Each section file should include its \section{} command
+5. Write references.bib with all citations in BibTeX format
+6. After writing all files, compile the paper:
+   cd paper_draft && pdflatex -interaction=nonstopmode main.tex && bibtex main && pdflatex -interaction=nonstopmode main.tex && pdflatex -interaction=nonstopmode main.tex
+
+This modular structure allows humans to easily:
+- Edit individual sections without navigating a large file
+- Track changes per section
+- Reuse sections across different paper versions
+
+════════════════════════════════════════════════════════════════════════════════
+                          QUALITY REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+- Academic tone throughout
+- All claims must be supported by data from the experiment report
+- Proper citations using \cite{} commands
+- Clear figures and tables with proper captions
+- NO placeholder text - every section must have real content
+- The paper MUST compile without errors
+- If compilation fails, debug and fix the LaTeX errors
+
+════════════════════════════════════════════════════════════════════════════════
+                          LAB WRITING STYLE
+════════════════════════════════════════════════════════════════════════════════
+
+Follow these lab-specific conventions to match our paper style:
+
+1. LANGUAGE STYLE:
+   - Use active voice: "We propose", "We examine", "We focus on"
+   - Be direct and confident: "Our main question is...", "We hypothesize that..."
+   - State things clearly and simply - prefer plain language over jargon
+   - Use bold questions as paragraph organizers: {\bf what is X?}
+   - Include specific quantitative claims: "8.97% over baseline"
+   - Avoid fancy wording: "utilize" → "use", "facilitate" → "help"
+
+2. INTRODUCTION STRUCTURE:
+   - Engaging hook (get to the point quickly)
+   - Problem importance
+   - Gap identification
+   - Your approach with method figure reference
+   - Quantitative preview of results
+   - Contribution bullets (3-4 items, action verbs)
+
+3. CONTRIBUTION LISTS:
+   \begin{itemize}[leftmargin=*,itemsep=0pt,topsep=0pt]
+       \item We propose...
+       \item We conduct...
+       \item We complement...
+   \end{itemize}
+
+4. MODULAR COMMANDS STRUCTURE:
+   Command templates are pre-copied to paper_draft/commands/:
+   - math.tex: Math notation macros
+   - general.tex: Formatting macros
+   - macros.tex: Project-specific term definitions (customize this for your paper)
+
+   In main.tex, include:
+   \input{commands/math}
+   \input{commands/general}
+   \input{commands/macros}
+
+5. REFERENCE CONVENTIONS:
+   Use reference macros from math.tex:
+   - \figref{fig:name} for "figure 1" (lowercase, in-sentence)
+   - \Figref{fig:name} for "Figure 1" (capitalized, start of sentence)
+   - \secref{sec:name} for "section 2"
+
+6. TEXT FORMATTING:
+   - Use \para{Header text} for bold paragraph headers
+   - Define method/dataset names with \textsc and \xspace:
+     \newcommand{\methodname}{\textsc{MethodName}\xspace}
+
+7. TABLE FORMATTING:
+   - Use booktabs package (no vertical lines)
+   - Use \resizebox{\textwidth}{!}{...} for wide tables
+   - Use @{} to remove padding at table edges
+   - Use \cmidrule(lr){x-y} for sub-headers
+   - Use \textsc{} for dataset/method names in headers
+   - Bold best results with {\bf ...}
+
+8. FIGURE FORMATTING:
+   - Use 0.32\textwidth for 3-column subfigures
+   - Use 0.95\linewidth for full-width figures
+   - Use \input{figures/legend} for shared legends
+   - Write self-contained captions explaining key observations
+
+9. RESULTS PRESENTATION:
+   - Define \increase and \decrease for colored arrows (green up, red down)
+   - Bold best results in tables
+   - Report confidence intervals when available
+
+10. ALGORITHM STYLING:
+    - Use algpseudocode with [noend]
+    - Use \triangleright for comments
+
+11. HYPERLINKS (REQUIRED):
+    - Always use \usepackage[hidelinks]{hyperref} or with colored links
+    - All citations, section refs, figure refs, table refs must be clickable
+    - This is essential for reader navigation
+
+════════════════════════════════════════════════════════════════════════════════
+                          WORKFLOW: REVIEW AND REFLECT
+════════════════════════════════════════════════════════════════════════════════
+
+Before calling finish, you MUST complete these review steps:
+
+1. REVIEW RESOURCES (at the start):
+   - Read .claude/skills/paper-writer/SKILL.md for detailed guidance
+   - Study templates/paper_writing/lab_style_guide.md for style conventions
+   - Browse paper_examples/ for formatting and language patterns
+
+2. SELF-REFLECTION (before finishing):
+   After writing all sections, review your work against these criteria:
+
+   LANGUAGE CHECK:
+   - [ ] Is the writing clear and jargon-free?
+   - [ ] Are claims specific with quantitative support?
+   - [ ] Is active voice used throughout?
+
+   FORMATTING CHECK:
+   - [ ] Does main.tex include \input{commands/math}, \input{commands/general}, \input{commands/macros}?
+   - [ ] Is hyperref package included for clickable references?
+   - [ ] Do tables use booktabs (no vertical lines)?
+   - [ ] Are best results bolded in tables?
+   - [ ] Are figures/tables properly captioned?
+
+   STRUCTURE CHECK:
+   - [ ] Does introduction follow: hook → importance → gap → approach → preview → contributions?
+   - [ ] Are contribution bullets specific with action verbs?
+   - [ ] Does the paper compile without errors?
+
+3. FIX ISSUES:
+   - Address any issues found in the self-reflection
+   - Re-compile and verify the PDF looks correct
+
+Only after completing this review should you consider the paper finished.

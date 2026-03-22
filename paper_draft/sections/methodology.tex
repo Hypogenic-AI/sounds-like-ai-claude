@@ -1,0 +1,71 @@
+\section{Methodology}
+\label{sec:method}
+
+We follow the contrastive activation analysis pipeline established by \citet{arditi2024refusal} and \citet{marks2024geometry}, adapted for stylistic properties.
+The approach has four stages: data construction, activation collection, direction finding, and validation.
+
+\subsection{Data Construction}
+\label{sec:data}
+
+We use the \hcthree dataset~\citep{guo2023hc3}, which contains paired human and ChatGPT responses to the same questions.
+The content-controlled pairing is critical: because both responses answer the same question, differences in activation patterns are more likely to reflect \emph{style} rather than \emph{topic}.
+
+From \hcthree, we extract 392 paired samples after filtering for a minimum length of 10 words.
+We select the first human and first ChatGPT answer for each question, truncate to 512 characters, and shuffle with a fixed seed.
+The samples span five domains: \textsc{reddit\_eli5} (271 samples), \textsc{finance} (74), \textsc{medicine} (18), \textsc{open\_qa} (15), and \textsc{wiki\_csai} (14).
+The domain imbalance is a known property of \hcthree and motivates our cross-domain generalization experiments.
+
+\subsection{Activation Collection}
+\label{sec:activations}
+
+We process each text through the model using TransformerLens and collect residual stream activations at the last token position for every layer.
+We use the last token because it aggregates information from the full sequence, following the standard protocol for sequence-level probing~\citep{marks2024geometry}.
+
+We test two models:
+\begin{itemize}[leftmargin=*,itemsep=0pt,topsep=0pt]
+    \item \pythia: a 32-layer base model ($d_\text{model} = 2560$) with no alignment training, serving as a control for whether the signal exists prior to instruction tuning.
+    \item \qwen: a 36-layer instruction-tuned model ($d_\text{model} = 2048$) that has undergone RLHF, representing a model that actively \emph{produces} \aistyle text.
+\end{itemize}
+
+All inference uses float16 precision with batch size 8 and a maximum of 128 tokens per input.
+
+\subsection{Direction Finding}
+\label{sec:directions}
+
+\para{Difference-in-means (DiffMean).}
+For each layer $l$, we compute the candidate \aistyle direction as:
+\begin{equation}
+    \vd_l = \frac{1}{|\gS_\text{AI}|} \sum_{i \in \gS_\text{AI}} \vh_l^{(i)} - \frac{1}{|\gS_\text{H}|} \sum_{i \in \gS_\text{H}} \vh_l^{(i)}
+    \label{eq:diffmean}
+\end{equation}
+where $\vh_l^{(i)} \in \R^{d_\text{model}}$ is the residual stream activation at layer $l$ for sample $i$, and $\gS_\text{AI}$, $\gS_\text{H}$ are the sets of AI-written and human-written samples, respectively.
+We choose \diffmean over logistic regression because \citet{marks2024geometry} showed it identifies more causally relevant directions.
+
+\para{Linear probes.}
+As a stronger classification baseline, we train an SGDClassifier (logistic regression with stochastic gradient descent, $\alpha = 10^{-4}$) on the full-dimensional residual stream activations.
+We evaluate with 5-fold stratified cross-validation.
+
+\subsection{Validation}
+\label{sec:validation}
+
+We validate the identified direction along four axes.
+
+\para{Random direction baseline.}
+We sample 500 random unit vectors in $\R^{d_\text{model}}$ and compute each one's classification accuracy when used as a 1D projection (threshold at median).
+We compare the \diffmean direction's accuracy to this null distribution and report the $z$-score and $p$-value.
+
+\para{Cross-domain generalization.}
+We train the \diffmean direction on samples from one domain and test on each other domain.
+A direction that captures general \aistyle rather than domain-specific artifacts should transfer across domains.
+
+\para{Causal steering.}
+We add a scaled version of the \diffmean direction to the residual stream during generation:
+\begin{equation}
+    \vh_l' = \vh_l + \alpha \cdot \hat{\vd}_l
+    \label{eq:steering}
+\end{equation}
+where $\hat{\vd}_l$ is the unit-normalized direction and $\alpha \in \{-20, -10, -5, 0, +5, +10, +20\}$.
+We measure the resulting projection of generated text activations onto the direction and observe qualitative changes in output style.
+
+\para{Layer analysis.}
+We compare probe accuracy and \diffmean accuracy across all layers to identify where the model encodes the \aistyle signal most strongly.

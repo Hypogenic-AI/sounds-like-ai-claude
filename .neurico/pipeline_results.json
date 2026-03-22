@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "stages": {
+    "resource_finder": {
+      "success": true,
+      "completion_marker": "/workspaces/sounds-like-ai-claude/.resource_finder_complete",
+      "outputs": {
+        "literature_review": "/workspaces/sounds-like-ai-claude/literature_review.md",
+        "resources_catalog": "/workspaces/sounds-like-ai-claude/resources.md",
+        "papers_dir": "/workspaces/sounds-like-ai-claude/papers",
+        "datasets_dir": "/workspaces/sounds-like-ai-claude/datasets",
+        "code_dir": "/workspaces/sounds-like-ai-claude/code"
+      },
+      "log_file": "/workspaces/sounds-like-ai-claude/logs/resource_finder_claude.log",
+      "transcript_file": "/workspaces/sounds-like-ai-claude/logs/resource_finder_claude_transcript.jsonl",
+      "elapsed_time": 991.9734883308411
+    },
+    "experiment_runner": {
+      "success": true,
+      "return_code": 0,
+      "elapsed_time": 2758.0997421741486,
+      "log_file": "/workspaces/sounds-like-ai-claude/logs/execution_claude.log",
+      "transcript_file": "/workspaces/sounds-like-ai-claude/logs/execution_claude_transcript.jsonl"
+    }
+  },
+  "work_dir": "/workspaces/sounds-like-ai-claude"
+}

@@ -1,0 +1,14 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We investigated whether \aistyle is linearly represented in the residual stream of large language models.
+Using contrastive activation analysis on paired human and ChatGPT text, we found that linear probes achieve 93--96\% accuracy at distinguishing the two classes across two architecturally different models, while the one-dimensional difference-in-means direction achieves 69--81\%.
+The gap between these numbers suggests that \aistyle occupies a multi-dimensional subspace rather than a single direction, distinguishing it from the cleaner single-direction geometry observed for refusal and truth.
+
+Our results connect mechanistic interpretability to AI-generated text detection.
+The strong signal in a base model (\pythia) shows that stylistic representations emerge during pre-training, before alignment, and the dramatically earlier peak in an instruction-tuned model (\qwen) suggests that alignment training reorganizes these representations.
+
+Several directions remain open.
+Testing with text from multiple AI generators would clarify whether the direction is model-general or ChatGPT-specific.
+Sparse autoencoder decomposition could identify the individual stylistic features (formality, hedging, verbosity) that compose the subspace.
+Finally, causal steering on instruction-tuned models would provide a stronger test of whether the direction controls \aistyle in generated text, with potential applications to controllable generation and more robust AI text detection.

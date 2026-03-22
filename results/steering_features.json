@@ -1,0 +1,51 @@
+{
+  "-20.0": {
+    "word_count": 73.875,
+    "avg_sentence_len": 16.373561507936508,
+    "hedge_ratio": 0.0029069767441860465,
+    "formal_ratio": 0.0,
+    "has_numbered_list": 0.0
+  },
+  "-10.0": {
+    "word_count": 78.75,
+    "avg_sentence_len": 14.735565476190477,
+    "hedge_ratio": 0.0046875,
+    "formal_ratio": 0.0,
+    "has_numbered_list": 0.0
+  },
+  "-5.0": {
+    "word_count": 81.125,
+    "avg_sentence_len": 15.765277777777776,
+    "hedge_ratio": 0.0035984075132707224,
+    "formal_ratio": 0.0,
+    "has_numbered_list": 0.0
+  },
+  "0.0": {
+    "word_count": 77.625,
+    "avg_sentence_len": 14.561383928571429,
+    "hedge_ratio": 0.003154761904761905,
+    "formal_ratio": 0.0,
+    "has_numbered_list": 0.25
+  },
+  "5.0": {
+    "word_count": 78.875,
+    "avg_sentence_len": 14.14985119047619,
+    "hedge_ratio": 0.0015822784810126582,
+    "formal_ratio": 0.0,
+    "has_numbered_list": 0.125
+  },
+  "10.0": {
+    "word_count": 72.875,
+    "avg_sentence_len": 19.145833333333332,
+    "hedge_ratio": 0.0019230769230769232,
+    "formal_ratio": 0.0,
+    "has_numbered_list": 0.0
+  },
+  "20.0": {
+    "word_count": 74.0,
+    "avg_sentence_len": 20.958928571428572,
+    "hedge_ratio": 0.0,
+    "formal_ratio": 0.0,
+    "has_numbered_list": 0.0
+  }
+}

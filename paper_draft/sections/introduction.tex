@@ -1,0 +1,35 @@
+\section{Introduction}
+\label{sec:introduction}
+
+People can often tell when text was written by a large language model.
+The telltale signs---diplomatic hedging, numbered lists, verbose explanations, and an unmistakable veneer of helpfulness---are familiar to anyone who has used ChatGPT.
+But where does this \aistyle live inside the model?
+Is it an emergent artifact of many interacting circuits, or is it a geometrically simple feature that the model explicitly represents?
+
+The linear representation hypothesis offers a concrete framework for answering this question.
+Recent work has demonstrated that high-level concepts---truthfulness~\citep{marks2024geometry}, refusal~\citep{arditi2024refusal}, sentiment~\citep{turner2023activation}, and spatial/temporal knowledge~\citep{gurnee2023language}---are linearly encoded as directions in a model's residual stream.
+Intervening on these directions causally changes model behavior: erasing the refusal direction jailbreaks a model; adding a truth direction makes outputs more factual.
+If \aistyle is similarly represented, it would mean that the distinctive voice of AI-generated text is not merely a surface-level statistical pattern but a structured, controllable internal feature.
+
+Despite the breadth of concepts studied under the linear representation hypothesis, no prior work has investigated whether \aistyle is one of them.
+AI-generated text detection research operates almost entirely on surface-level features---stylometric statistics, output probabilities, watermarks---rather than internal model representations~\citep{guo2023hc3}.
+Meanwhile, mechanistic interpretability has focused on factual, behavioral, and safety-relevant properties rather than stylistic ones.
+This leaves a clear gap: we do not know whether the quality that makes text ``sound like AI'' has the same clean geometric structure as truth or refusal.
+
+We address this gap directly.
+Using contrastive activation analysis~\citep{rimsky2024steering, arditi2024refusal} on paired human and ChatGPT responses from the \hcthree dataset~\citep{guo2023hc3}, we extract candidate \aistyle directions from the residual stream and validate them with linear probes, random baselines, cross-domain transfer, and causal steering experiments.
+We test two architecturally different models---\pythia (a base model) and \qwen (an instruction-tuned model)---to assess whether the signal depends on alignment training.
+
+Our main findings are:
+\begin{itemize}[leftmargin=*,itemsep=0pt,topsep=0pt]
+    \item We show that \aistyle is linearly decodable from residual stream activations, with linear probes achieving 93.1\% accuracy on \pythia and 95.9\% on \qwen (\secref{sec:probes}).
+    \item We find that the difference-in-means direction captures a meaningful but incomplete signal (69--81\% accuracy), suggesting \aistyle occupies a multi-dimensional subspace rather than a single direction (\secref{sec:diffmean}).
+    \item We demonstrate that the direction generalizes partially across text domains (69--72\% mean cross-domain accuracy) and produces monotonic causal effects when used for activation steering (\secref{sec:steering}).
+    \item We observe that the optimal layer differs dramatically between models---layer 30/32 for \pythia versus layer 9/36 for \qwen---suggesting instruction tuning redistributes stylistic representations (\secref{sec:layers}).
+\end{itemize}
+
+The remainder of this paper is organized as follows.
+\Secref{sec:related} reviews related work on linear representations and AI text detection.
+\Secref{sec:method} describes our methodology.
+\Secref{sec:results} presents experimental results.
+\Secref{sec:discussion} discusses implications and limitations, and \secref{sec:conclusion} concludes.

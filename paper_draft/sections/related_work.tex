@@ -1,0 +1,31 @@
+\section{Related Work}
+\label{sec:related}
+
+\para{Linear representations in language models.}
+The linear representation hypothesis~\citep{park2023linear} posits that high-level concepts are encoded as directions in a model's activation space.
+\citet{marks2024geometry} demonstrated that truthfulness is linearly represented in LLM residual streams, introducing mass-mean probing (difference-in-means with covariance correction) as a direction-finding method that identifies more causally relevant directions than logistic regression.
+\citet{arditi2024refusal} showed that refusal behavior across 13 chat models is mediated by a single direction in the residual stream; erasing this direction disables refusal with minimal capability loss.
+\citet{gurnee2023language} found linear representations of spatial and temporal concepts, identifying individual ``space neurons'' and ``time neurons.''
+\citet{cunningham2023sparse} showed that sparse autoencoders can decompose activations into interpretable features, resolving superposition.
+Our work extends this line of research to a stylistic property---\aistyle---rather than a factual or behavioral one.
+
+\para{Activation steering.}
+\citet{turner2023activation} introduced Activation Addition (ActAdd), computing steering vectors from contrastive prompt pairs and adding them during inference to control sentiment and topic.
+\citet{rimsky2024steering} scaled this approach with Contrastive Activation Addition (CAA), averaging residual stream differences over many contrastive pairs for more robust steering.
+\citet{jorgensen2023improving} showed that mean-centring steering vectors significantly improves effectiveness.
+\citet{lee2024mechanistic} found that DPO does not remove toxic capabilities but routes around them, suggesting alignment overlays representations rather than erasing them.
+We adopt the contrastive activation methodology from this body of work, adapting it for stylistic rather than behavioral steering.
+
+\para{AI-generated text detection.}
+Most approaches to detecting AI-generated text operate on model outputs rather than internal representations.
+\citet{guo2023hc3} introduced the \hcthree dataset of paired human and ChatGPT responses and trained surface-level classifiers.
+Watermarking methods~\citep{kirchenbauer2023watermark} embed statistical signals in generated text.
+Output-probability approaches compare a text's likelihood under different models.
+\citet{oneill2025single} is closest to our work: they showed that a single linear direction in an observer model's residual stream can detect hallucinations in another model's outputs.
+Unlike all of these approaches, we study whether the \emph{generating} model itself linearly represents the stylistic quality that makes its outputs detectable.
+
+\para{Positioning.}
+Our work sits at the intersection of linear representation analysis and AI text detection.
+Unlike prior linear representation studies, we target a stylistic property rather than a factual or behavioral one.
+Unlike AI detection research, we probe internal representations rather than surface features.
+The closest comparison is to the refusal direction work of \citet{arditi2024refusal}: both find directions that mediate a model-level property, but \aistyle turns out to be more complex (multi-dimensional) than refusal (single direction).

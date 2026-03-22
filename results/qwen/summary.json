@@ -1,0 +1,16 @@
+{
+  "model": "Qwen/Qwen2.5-3B-Instruct",
+  "n_layers": 36,
+  "d_model": 2048,
+  "n_samples": 392,
+  "best_layer": 9,
+  "best_lr_accuracy": 0.9591948391311449,
+  "best_lr_accuracy_std": 0.01588813337574983,
+  "best_diffmean_accuracy": 0.6938775510204082,
+  "random_baseline_accuracy": 0.49094387755102037,
+  "random_baseline_std": 0.14055829611009363,
+  "z_score_vs_random": 1.4437687357168734,
+  "p_value_vs_random": 0.064,
+  "mean_cross_domain_accuracy": 0.7208632367211704,
+  "seed": 42
+}

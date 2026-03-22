@@ -1,0 +1,55 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{AI Style as a Multi-Dimensional Subspace}
+
+The most striking finding is the gap between linear probe accuracy (93--96\%) and \diffmean single-direction accuracy (69--81\%).
+For refusal, \citet{arditi2024refusal} found that a single direction captures nearly the full discriminative signal ($\sim$95\% accuracy for both methods).
+For truth, \citet{marks2024geometry} reported a similar pattern.
+The 12--27 percentage point gap we observe for \aistyle suggests it is fundamentally different: a composite of multiple stylistic features rather than an atomic concept.
+
+This interpretation is consistent with what we know about AI writing style.
+``Sounding like AI'' involves formality, hedging (``It is worth noting that...''), verbosity, structural markers (numbered lists, topic sentences), and affective flattening.
+Each of these may have its own direction in the residual stream, composing into a subspace that linear probes can exploit but a single direction cannot fully capture.
+Sparse autoencoder analysis~\citep{cunningham2023sparse} could decompose this subspace into individual interpretable features, a promising direction for future work.
+
+\subsection{Why Does the Base Model Encode AI Style?}
+
+\pythia has never been instruction-tuned, yet its residual stream distinguishes human from ChatGPT text at 93.1\% probe accuracy.
+This means the model learned enough about natural language style during pre-training to detect the statistical signatures of AI-generated text.
+Pre-training on web data likely exposes the model to both casual human writing and more formal, structured text that shares features with AI-generated prose.
+The model does not need to know what ``AI text'' is; it simply encodes stylistic dimensions that happen to separate the two classes.
+
+This finding has implications for AI text detection: even base models without alignment training contain internal representations that could serve as detection signals, potentially more robust to paraphrasing than surface-level detectors.
+
+\subsection{Layer Differences Reflect Architectural and Training Effects}
+
+The dramatic difference in optimal layer---93.8\% depth for \pythia versus 25\% depth for \qwen---suggests that instruction tuning fundamentally reorganizes where stylistic information is represented.
+In \pythia, the \aistyle signal emerges late, consistent with the general observation that base models build high-level features in their final layers.
+In \qwen, the signal peaks early, possibly because alignment training creates an early ``style routing'' signal that shapes subsequent generation.
+\citet{lee2024mechanistic} found that DPO overlays rather than replaces representations; our results are consistent with alignment adding an early-layer stylistic bias that the rest of the network conditions on.
+
+\subsection{Limitations}
+
+\para{Single AI source.}
+\hcthree contains only ChatGPT responses.
+The direction we find may capture ChatGPT-specific style rather than a model-general \aistyle signal.
+Testing with text from Claude, Gemini, and other models is needed to assess generality.
+
+\para{Content confounds.}
+Despite the question-paired design of \hcthree, human and ChatGPT answers may differ in topic emphasis and information content, not just style.
+The direction may partially encode content differences rather than pure style.
+
+\para{Small domain sizes.}
+Three of five domains have fewer than 20 samples (\textsc{medicine}: 18, \textsc{open\_qa}: 15, \textsc{wiki\_csai}: 14), limiting the reliability of cross-domain transfer estimates for these domains.
+
+\para{Base model steering.}
+Our causal steering experiment uses \pythia, a base model that does not naturally produce \aistyle text.
+This limits the interpretability of the steering results; the text-level effects would likely be larger and more informative on an instruction-tuned model.
+
+\para{Single token position.}
+We collect activations only at the last token.
+The \aistyle direction may be stronger or differently structured at other positions, particularly at content-bearing tokens earlier in the sequence.
+
+\para{No human evaluation.}
+We use probe accuracy and projection values as proxies for \aistyle rather than collecting human judgments of how ``AI-like'' generated text sounds under different steering conditions.
