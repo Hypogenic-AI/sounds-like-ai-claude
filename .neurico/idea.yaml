@@ -1,0 +1,23 @@
+idea:
+  title: Is there a 'sounds like AI' direction in the residual stream?
+  domain: nlp
+  hypothesis: 'Large language models exhibit linear structure in their residual streams
+    that controls output style and semantics; this research investigates whether there
+    exists a specific direction in the residual stream that corresponds to outputs
+    that "sound like AI".
+
+    '
+  background:
+    description: 'LLMs are known to have a lot of linear structure that controls their
+      output styles and semantics. Is sounding like an AI one of those?
+
+      '
+  metadata:
+    author: Ari Holtzman
+    source: IdeaHub
+    source_url: https://hypogenic.ai/ideahub/idea/TgNhdzCkjiUs99PjVwuk
+    idea_id: is_there_a__sounds_like_ai__di_20260322_053110_751f7163
+    created_at: '2026-03-22T05:31:10.470379'
+    status: submitted
+    github_repo_name: sounds-like-ai-claude
+    github_repo_url: https://github.com/Hypogenic-AI/sounds-like-ai-claude
